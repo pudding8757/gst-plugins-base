@@ -2,7 +2,6 @@ plugin_LTLIBRARIES = libgstid3tag.la
 
 libgstid3tag_la_SOURCES = \
 	gstid3mux.c \
-	gsttagmux.c \
 	id3tag.c
 
 libgstid3tag_la_CFLAGS = \
@@ -16,4 +15,4 @@ libgstid3tag_la_LIBADD = \
 libgstid3tag_la_LDFLAGS = $(GST_PLUGIN_LDFLAGS)
 libgstid3tag_la_LIBTOOLFLAGS = --tag=disable-static
 
-noinst_HEADERS = gstid3mux.h gsttagmux.h id3tag.h
+noinst_HEADERS = gstid3mux.h id3tag.h
