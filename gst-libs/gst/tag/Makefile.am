@@ -26,7 +26,8 @@ lib_LTLIBRARIES = libgsttag-@GST_API_VERSION@.la
 libgsttag_@GST_API_VERSION@_la_SOURCES = \
 	gstvorbistag.c gstid3tag.c gstxmptag.c gstexiftag.c \
 	lang.c licenses.c tags.c gsttagdemux.c gsttagmux.c \
-	gsttageditingprivate.c id3v2.c id3v2frames.c xmpwriter.c
+	gsttageditingprivate.c id3v2.c id3v2frames.c xmpwriter.c \
+	id3tagwriter.c
 nodist_libgsttag_@GST_API_VERSION@_la_SOURCES = $(BUILT_SOURCES)
 
 libgsttag_@GST_API_VERSION@_la_CFLAGS = $(GST_PLUGINS_BASE_CFLAGS) \

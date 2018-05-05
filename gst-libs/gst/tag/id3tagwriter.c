@@ -20,13 +20,10 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#include "id3tag.h"
+#include "tag.h"
+
 #include <string.h>
-
-#include <gst/tag/tag.h>
-
-GST_DEBUG_CATEGORY_EXTERN (gst_id3_mux_debug);
-#define GST_CAT_DEFAULT gst_id3_mux_debug
+#include <gst/base/gstbytereader.h>
 
 #define ID3V2_APIC_PICTURE_OTHER 0
 #define ID3V2_APIC_PICTURE_FILE_ICON 1
@@ -708,7 +705,7 @@ add_comment_tag (GstId3v2Tag * id3v2tag, const GstTagList * list,
         val = g_strdup (s);
       }
 
-      /* If we don't have a valid language, match what taglib does for 
+      /* If we don't have a valid language, match what taglib does for
          unknown languages */
       if (!lang || strlen (lang) < 3)
         lang = g_strdup ("XXX");
@@ -1229,13 +1226,13 @@ foreach_add_tag (const GstTagList * list, const gchar * tag, gpointer userdata)
 }
 
 GstBuffer *
-id3_mux_render_v2_tag (GstTagMux * mux, const GstTagList * taglist, int version)
+gst_tag_list_to_id3v2_tag (const GstTagList * taglist, int version)
 {
   GstId3v2Tag tag;
   GstBuffer *buf;
 
   if (!id3v2_tag_init (&tag, version)) {
-    GST_WARNING_OBJECT (mux, "Unsupported version %d", version);
+    GST_WARNING ("Unsupported version %d", version);
     return NULL;
   }
 
@@ -1256,7 +1253,7 @@ id3_mux_render_v2_tag (GstTagMux * mux, const GstTagList * taglist, int version)
 
   /* Create buffer with tag */
   buf = id3v2_tag_to_buffer (&tag);
-  GST_LOG_OBJECT (mux, "tag size = %d bytes", (int) gst_buffer_get_size (buf));
+  GST_LOG ("tag size = %d bytes", (int) gst_buffer_get_size (buf));
 
   id3v2_tag_unset (&tag);
 
@@ -1382,7 +1379,7 @@ static const struct
 };
 
 GstBuffer *
-id3_mux_render_v1_tag (GstTagMux * mux, const GstTagList * taglist)
+gst_tag_list_to_id3v1_tag (const GstTagList * taglist)
 {
   GstMapInfo info;
   GstBuffer *buf;
@@ -1410,7 +1407,7 @@ id3_mux_render_v1_tag (GstTagMux * mux, const GstTagList * taglist)
   gst_buffer_unmap (buf, &info);
 
   if (!wrote_tag) {
-    GST_WARNING_OBJECT (mux, "no ID3v1 tag written (no suitable tags found)");
+    GST_WARNING ("no ID3v1 tag written (no suitable tags found)");
     gst_buffer_unref (buf);
     return NULL;
   }

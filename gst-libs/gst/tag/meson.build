@@ -12,6 +12,7 @@ tag_sources = [
   'id3v2.c',
   'id3v2frames.c',
   'xmpwriter.c',
+  'id3tagwriter.c',
 ]
 
 tag_mkenum_headers = [

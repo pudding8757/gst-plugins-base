@@ -495,6 +495,12 @@ GST_TAG_API
 GstTagList *            gst_tag_list_from_id3v2_tag (GstBuffer * buffer);
 
 GST_TAG_API
+GstBuffer  *            gst_tag_list_to_id3v2_tag   (const GstTagList * taglist, int version);
+
+GST_TAG_API
+GstBuffer  *            gst_tag_list_to_id3v1_tag   (const GstTagList * taglist);
+
+GST_TAG_API
 guint                   gst_tag_get_id3v2_tag_size  (GstBuffer * buffer);
 
 /* functions to  convert GstBuffers with xmp packets contents to GstTagLists and back */
