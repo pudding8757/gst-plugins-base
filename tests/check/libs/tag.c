@@ -701,7 +701,7 @@ GST_START_TEST (test_id3v2_priv_tag)
     0xa0
   };
   const GstStructure *s;
-  GstTagList *tags;
+  GstTagList *tags, *tags_from_buf;
   GstSample *sample = NULL;
   GstBuffer *buf;
   GstMapInfo map;
@@ -739,9 +739,44 @@ GST_START_TEST (test_id3v2_priv_tag)
   fail_unless_equals_uint64 (GST_READ_UINT64_BE (map.data), 0x0dbba0);
   gst_buffer_unmap (buf, &map);
   g_free (owner);
-
   gst_sample_unref (sample);
+
+  /* Convert taglist to buffer */
+  buf = gst_tag_list_to_id3v2_tag (tags, 3);
+  fail_unless (buf != NULL);
+
+  tags_from_buf = gst_tag_list_from_id3v2_tag (buf);
+  gst_buffer_unref (buf);
+
+  fail_if (tags_from_buf == NULL, "Failed to parse ID3 tag from buffer");
+
+  GST_LOG ("tags: %" GST_PTR_FORMAT, tags_from_buf);
+
+  if (!gst_tag_list_get_sample (tags_from_buf, GST_TAG_PRIVATE_DATA, &sample))
+    g_error ("Failed to get PRIVATE_DATA tag");
+
+  s = gst_sample_get_info (sample);
+  buf = gst_sample_get_buffer (sample);
+
+  if (!gst_structure_has_name (s, "ID3PrivateFrame"))
+    g_error ("wrong info name");
+
+  gst_structure_get (s, "owner", G_TYPE_STRING, &owner, NULL);
+  fail_unless (owner != NULL);
+
+  fail_unless_equals_string (owner,
+      "com.apple.streaming.transportStreamTimestamp");
+
+  gst_buffer_map (buf, &map, GST_MAP_READ);
+  GST_MEMDUMP ("private data", map.data, map.size);
+  fail_unless_equals_uint64 (GST_READ_UINT64_BE (map.data), 0x0dbba0);
+  gst_buffer_unmap (buf, &map);
+  g_free (owner);
+  gst_sample_unref (sample);
+
+
   gst_tag_list_unref (tags);
+  gst_tag_list_unref (tags_from_buf);
 }
 
 GST_END_TEST;
