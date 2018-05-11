@@ -2424,6 +2424,52 @@ find_source_group_owner (GstPlayBin3 * playbin, GstObject * element)
 }
 
 static void
+handle_source_stream_collection (GstPlayBin3 * playbin, GstMessage * msg)
+{
+  GstElement *source = GST_ELEMENT (GST_MESSAGE_SRC (msg));
+  GstStreamCollection *collection = NULL;
+
+  gst_message_parse_stream_collection (msg, &collection);
+
+  if (collection) {
+    GstStreamType used_types = 0;
+    GList *list = NULL;
+    guint i;
+
+    GST_FIXME_OBJECT (playbin,
+        "Send select-streams to %" GST_PTR_FORMAT, source);
+
+    for (i = 0; i < gst_stream_collection_get_size (collection); i++) {
+      GstStream *stream = gst_stream_collection_get_stream (collection, i);
+      const gchar *sid = gst_stream_get_stream_id (stream);
+      GstStreamType curtype = gst_stream_get_stream_type (stream);
+
+      /* insufficient expose unknown stream anyway */
+      if (curtype == GST_STREAM_TYPE_UNKNOWN) {
+        GST_DEBUG_OBJECT (playbin, "Selecting unknown type stream '%s'", sid);
+        list = g_list_append (list, (gchar *) sid);
+        continue;
+      }
+
+      if (!(used_types & curtype)) {
+        GST_DEBUG_OBJECT (playbin, "Selecting stream '%s' of type %s",
+            sid, gst_stream_type_get_name (curtype));
+        list = g_list_append (list, (gchar *) sid);
+        used_types |= curtype;
+      }
+    }
+
+    if (list) {
+      gst_element_send_event (source, gst_event_new_select_streams (list));
+      g_list_free (list);
+    }
+
+
+    gst_object_unref (collection);
+  }
+}
+
+static void
 gst_play_bin3_handle_message (GstBin * bin, GstMessage * msg)
 {
   GstPlayBin3 *playbin = GST_PLAY_BIN3 (bin);
@@ -2501,7 +2547,16 @@ gst_play_bin3_handle_message (GstBin * bin, GstMessage * msg)
   } else if (GST_MESSAGE_TYPE (msg) == GST_MESSAGE_STREAM_COLLECTION) {
     GstStreamCollection *collection = NULL;
 
+    /* FIXME: need to find smart way */
     gst_message_parse_stream_collection (msg, &collection);
+
+    if (collection
+        && !g_strcmp0 (gst_stream_collection_get_upstream_id (collection),
+            "adaptivedemux")) {
+      handle_source_stream_collection (playbin, msg);
+      gst_object_unref (collection);
+      goto beach;
+    }
 
     if (collection) {
       gboolean pstate = playbin->do_stream_selections;
