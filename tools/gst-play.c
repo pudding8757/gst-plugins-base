@@ -72,6 +72,8 @@ typedef struct
 
   GstElement *playbin;
 
+  GstElement *adaptivedemux;
+
   /* playbin3 variables */
   gboolean is_playbin3;
   GstStreamCollection *collection;
@@ -259,6 +261,9 @@ play_free (GstPlay * play)
     g_signal_handler_disconnect (play->playbin, play->deep_notify_id);
 
   play_reset (play);
+
+  if (play->adaptivedemux)
+    gst_object_unref (play->adaptivedemux);
 
   gst_element_set_state (play->playbin, GST_STATE_NULL);
   gst_object_unref (play->playbin);
@@ -537,6 +542,15 @@ play_bus_msg (GstBus * bus, GstMessage * msg, gpointer user_data)
       gst_message_parse_stream_collection (msg, &collection);
 
       if (collection) {
+        if (g_strcmp0 (gst_stream_collection_get_upstream_id (collection),
+                "adaptivedemux")) {
+          gst_object_unref (collection);
+          break;
+        }
+
+        if (!play->adaptivedemux)
+          play->adaptivedemux = gst_object_ref (GST_MESSAGE_SRC (msg));
+
         g_mutex_lock (&play->selection_lock);
         gst_object_replace ((GstObject **) & play->collection,
             (GstObject *) collection);
@@ -551,6 +565,16 @@ play_bus_msg (GstBus * bus, GstMessage * msg, gpointer user_data)
 
       gst_message_parse_streams_selected (msg, &collection);
       if (collection) {
+        /* Ignore collection from decodebin3 */
+        if (g_strcmp0 (gst_stream_collection_get_upstream_id (collection),
+                "adaptivedemux")) {
+          gst_object_unref (collection);
+          break;
+        }
+
+        if (!play->adaptivedemux)
+          play->adaptivedemux = gst_object_ref (GST_MESSAGE_SRC (msg));
+
         g_mutex_lock (&play->selection_lock);
         gst_object_replace ((GstObject **) & play->collection,
             (GstObject *) collection);
@@ -1260,7 +1284,7 @@ play_cycle_track_selection (GstPlay * play, GstPlayTrackType track_type)
 
     if (play->is_playbin3) {
       if (selected_streams)
-        gst_element_send_event (play->playbin,
+        gst_element_send_event (play->adaptivedemux,
             gst_event_new_select_streams (selected_streams));
       else
         g_print ("Can't disable all streams !\n");
