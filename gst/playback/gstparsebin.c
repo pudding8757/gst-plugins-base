@@ -269,6 +269,8 @@ static void caps_notify_cb (GstPad * pad, GParamSpec * unused,
 static GstStateChangeReturn gst_parse_bin_change_state (GstElement * element,
     GstStateChange transition);
 static void gst_parse_bin_handle_message (GstBin * bin, GstMessage * message);
+static gboolean gst_parse_bin_handle_sink_event (GstPad * pad, GstObject *
+    parent, GstEvent * event);
 static void gst_parse_pad_update_caps (GstParsePad * parsepad, GstCaps * caps);
 static void gst_parse_pad_update_tags (GstParsePad * parsepad,
     GstTagList * tags);
@@ -919,6 +921,7 @@ gst_parse_bin_init (GstParseBin * parse_bin)
     gpad = gst_ghost_pad_new_from_template ("sink", pad, pad_tmpl);
     gst_pad_set_active (gpad, TRUE);
     gst_element_add_pad (GST_ELEMENT (parse_bin), gpad);
+    gst_pad_set_event_function (gpad, gst_parse_bin_handle_sink_event);
 
     gst_object_unref (pad_tmpl);
     gst_object_unref (pad);
@@ -4392,6 +4395,19 @@ gst_parse_bin_handle_message (GstBin * bin, GstMessage * msg)
     gst_message_unref (msg);
   else
     GST_BIN_CLASS (parent_class)->handle_message (bin, msg);
+}
+
+static gboolean
+gst_parse_bin_handle_sink_event (GstPad * pad, GstObject * parent,
+    GstEvent * event)
+{
+  /* Drop stream object in stream-start event */
+  if (GST_EVENT_TYPE (event) == GST_EVENT_STREAM_START) {
+    event = gst_event_make_writable (event);
+    gst_event_set_stream (event, NULL);
+  }
+
+  return gst_pad_event_default (pad, parent, event);
 }
 
 gboolean
