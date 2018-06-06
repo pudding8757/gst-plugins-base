@@ -1797,6 +1797,7 @@ multiqueue_src_probe (GstPad * pad, GstPadProbeInfo * info,
       case GST_EVENT_EOS:
       {
         gboolean was_drained = slot->is_drained;
+        GstMessage *msg = NULL;
         slot->is_drained = TRUE;
 
         /* Custom EOS handling first */
@@ -1814,18 +1815,56 @@ multiqueue_src_probe (GstPad * pad, GstPadProbeInfo * info,
             /* Remove the output */
             if (slot->output) {
               DecodebinOutputStream *output = slot->output;
-              dbin->output_streams =
-                  g_list_remove (dbin->output_streams, output);
-              free_output_stream (dbin, output);
+              GList *iter;
+
+              GST_DEBUG_OBJECT (pad,
+                  "Search slots to check output stream reuse");
+
+              for (iter = dbin->slots; iter; iter = g_list_next (iter)) {
+                MultiQueueSlot *other = (MultiQueueSlot *) iter->data;
+                const gchar *sid;
+
+                if (other == slot || other->type != slot->type || other->output)
+                  continue;
+
+                sid = gst_stream_get_stream_id (other->active_stream);
+
+                if (stream_in_list (dbin->requested_selection, sid)) {
+                  output->slot = other;
+                  GST_DEBUG ("Linking slot %p to new output %p", other, output);
+                  slot->output = output;
+                  dbin->active_selection =
+                      g_list_append (dbin->active_selection, (gchar *) sid);
+
+                  reconfigure_output_stream (output, other);
+                  msg = is_selection_done (dbin);
+                  SELECTION_UNLOCK (dbin);
+                  gst_pad_send_event (other->src_pad,
+                      gst_event_new_reconfigure ());
+
+                  SELECTION_LOCK (dbin);
+                  output = NULL;
+                  break;
+                }
+              }
+
+              if (output) {
+                dbin->output_streams =
+                    g_list_remove (dbin->output_streams, output);
+                free_output_stream (dbin, output);
+              }
             }
+            gst_pad_remove_probe (pad, slot->probe_id);
             slot->probe_id = 0;
             dbin->slots = g_list_remove (dbin->slots, slot);
             free_multiqueue_slot_async (dbin, slot);
-            ret = GST_PAD_PROBE_REMOVE;
           } else if (!was_drained) {
             check_all_slot_for_eos (dbin);
           }
           SELECTION_UNLOCK (dbin);
+
+          if (msg)
+            gst_element_post_message ((GstElement *) dbin, msg);
           break;
         }
 
